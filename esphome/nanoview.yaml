@@ -1,0 +1,544 @@
+substitutions:
+  device_name: "nanoview"
+  api_key: #Specify Device API Key
+  ota_password: #Specify Device OTA Password
+  nanoview_voltage_name: Live Voltage Mains
+  nanoview_ch1_name: Mains Breaker
+  nanoview_ch1_disabled: false
+  nanoview_ch2_name: Oven Breaker
+  nanoview_ch2_disabled: false
+  nanoview_ch3_name: Geyser Breaker
+  nanoview_ch3_disabled: false
+  nanoview_ch4_name: Earth-Leakage Breaker
+  nanoview_ch4_disabled: false
+  nanoview_ch5_name: Out-Building Breaker
+  nanoview_ch5_disabled: false
+  nanoview_ch6_name: Channel 6
+  nanoview_ch6_disabled: true
+  nanoview_ch7_name: Channel 7
+  nanoview_ch7_disabled: true
+  nanoview_ch8_name: Channel 8
+  nanoview_ch8_disabled: true
+  nanoview_ch9_name: Channel 9
+  nanoview_ch9_disabled: true
+  nanoview_ch10_name: Channel 10
+  nanoview_ch10_disabled: true
+  nanoview_ch11_name: Channel 11
+  nanoview_ch11_disabled: true
+  nanoview_ch12_name: Channel 12
+  nanoview_ch12_disabled: true
+  nanoview_ch13_name: Channel 13
+  nanoview_ch13_disabled: true
+  nanoview_ch14_name: Plugs Breaker 03
+  nanoview_ch14_disabled: false
+  nanoview_ch15_name: Plugs Breaker 02
+  nanoview_ch15_disabled: false
+  nanoview_ch16_name: Plugs Breaker 01
+  nanoview_ch16_disabled: false
+  
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32dev
+  framework: 
+    type: esp-idf
+
+logger:
+#  level: DEBUG
+
+api:
+  encryption:
+    key: "${api_key}"
+
+ota:
+  - platform: esphome
+    password: "${ota_password}"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${device_name}-fb"
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+web_server:
+  port: 80
+  auth:
+    username: !secret esphome_username
+    password: !secret esphome_password
+
+uart:
+  id: nanohub_uart
+  rx_pin: GPIO16
+  baud_rate: 2400
+  debug:
+    direction: RX
+    dummy_receiver: true
+    sequence:
+      - lambda: |-
+          // Define packet lengths for clarity
+          const int LIVE_POWER_PACKET_LEN = 38; // 1 Start + 1 ID + 34 Data + 2 Checksum
+          const int ACCUM_ENERGY_DATA_LEN = 64; // Data length for energy packet
+          const int ACCUM_ENERGY_PACKET_HEADER_AND_CRC_LEN = 1 + 1 + 2; // Start + ID + CRC1 + CRC2 = 4
+          const int ACCUM_ENERGY_PACKET_TOTAL_LEN = ACCUM_ENERGY_DATA_LEN + ACCUM_ENERGY_PACKET_HEADER_AND_CRC_LEN; // 64 + 4 = 68
+
+          const int TOTAL_CONCATENATED_PACKET_LEN = LIVE_POWER_PACKET_LEN + ACCUM_ENERGY_PACKET_TOTAL_LEN; // 38 + 68 = 106
+
+          // Check if we have enough bytes for both packets
+          if (bytes.size() >= TOTAL_CONCATENATED_PACKET_LEN) {
+            // --- Decode Live Power Packet ---
+            // Expected structure: AA 10 [DATA 34 bytes] [CRC1 CRC2]
+            if (bytes[0] == 0xAA && bytes[1] == 0x10) {
+              // Mains Voltage (16-bit unsigned int, Little-Endian)
+              uint16_t voltage_raw = (bytes[3] << 8) | bytes[2];
+              id(nanoview_voltage).publish_state(static_cast<float>(voltage_raw));
+
+              // Live Power Channels (16x 16-bit unsigned int, Little-Endian)
+              for (int i = 0; i < 16; ++i) {
+                int data_start_index = 4 + (i * 2); // 4 = byte index for Ch1 (after voltage)
+                if (data_start_index + 1 < LIVE_POWER_PACKET_LEN - 2) { // Ensure we don't read past data or into checksum
+                  uint16_t power_raw = (bytes[data_start_index + 1] << 8) | bytes[data_start_index];
+                  float power_val = static_cast<float>(power_raw);
+
+                  if (i == 0) id(nanoview_live_power_ch1).publish_state(power_val);
+                  else if (i == 1) id(nanoview_live_power_ch2).publish_state(power_val);
+                  else if (i == 2) id(nanoview_live_power_ch3).publish_state(power_val);
+                  else if (i == 3) id(nanoview_live_power_ch4).publish_state(power_val);
+                  else if (i == 4) id(nanoview_live_power_ch5).publish_state(power_val);
+                  else if (i == 5) id(nanoview_live_power_ch6).publish_state(power_val);
+                  else if (i == 6) id(nanoview_live_power_ch7).publish_state(power_val);
+                  else if (i == 7) id(nanoview_live_power_ch8).publish_state(power_val);
+                  else if (i == 8) id(nanoview_live_power_ch9).publish_state(power_val);
+                  else if (i == 9) id(nanoview_live_power_ch10).publish_state(power_val);
+                  else if (i == 10) id(nanoview_live_power_ch11).publish_state(power_val);
+                  else if (i == 11) id(nanoview_live_power_ch12).publish_state(power_val);
+                  else if (i == 12) id(nanoview_live_power_ch13).publish_state(power_val);
+                  else if (i == 13) id(nanoview_live_power_ch14).publish_state(power_val);
+                  else if (i == 14) id(nanoview_live_power_ch15).publish_state(power_val);
+                  else if (i == 15) id(nanoview_live_power_ch16).publish_state(power_val);
+                }
+              }
+
+              // (Optional) Check Live Power Packet Checksum
+              std::vector<uint8_t> live_power_data(bytes.begin() + 2, bytes.begin() + 2 + 34); // Data section only (34 bytes)
+              uint8_t crc1_calc_lp = 0; // Renamed to avoid conflict
+              uint8_t crc2_calc_lp = 0; // Renamed to avoid conflict
+              for (uint8_t b : live_power_data) {
+                crc1_calc_lp = (crc1_calc_lp + b) & 0xFF;
+                crc2_calc_lp = (crc2_calc_lp ^ crc1_calc_lp) & 0xFF;
+              }
+              uint8_t crc1_rx_lp = bytes[36]; // Live Power CRC1
+              uint8_t crc2_rx_lp = bytes[37]; // Live Power CRC2
+              if (crc1_calc_lp != crc1_rx_lp || crc2_calc_lp != crc2_rx_lp) {
+                ESP_LOGW("uart", "Live Power Packet Checksum Mismatch! Calculated: %02X %02X, Received: %02X %02X", crc1_calc_lp, crc2_calc_lp, crc1_rx_lp, crc2_rx_lp);
+              }
+            }
+
+            // --- Decode Accumulated Energy Packet ---
+            // Expected structure: AA 11 [DATA 64 bytes] [CRC1 CRC2]
+            // This packet starts at byte index LIVE_POWER_PACKET_LEN (38)
+            const int ENERGY_PACKET_OFFSET = LIVE_POWER_PACKET_LEN; // Where the second packet begins
+
+            if (bytes[ENERGY_PACKET_OFFSET] == 0xAA && bytes[ENERGY_PACKET_OFFSET + 1] == 0x11) {
+              // Energy Counters (16x 32-bit unsigned int, Little-Endian)
+              // Data starts at byte index (ENERGY_PACKET_OFFSET + 2)
+              for (int i = 0; i < 16; ++i) {
+                int data_start_index = ENERGY_PACKET_OFFSET + 2 + (i * 4);
+                if (data_start_index + 3 < TOTAL_CONCATENATED_PACKET_LEN - 2) { // Ensure within bounds (minus 2 for own checksum)
+                  uint32_t energy_raw = (bytes[data_start_index + 3] << 24) |
+                                        (bytes[data_start_index + 2] << 16) |
+                                        (bytes[data_start_index + 1] << 8)  |
+                                        bytes[data_start_index];
+                  float energy_val = static_cast<float>(energy_raw);
+
+                  // If you chose "kWh" for unit, divide by 1000.0f here
+                  energy_val /= 1000.0f; // Assuming kWh as unit
+
+                  if (i == 0) id(nanoview_energy_ch1).publish_state(energy_val);
+                  else if (i == 1) id(nanoview_energy_ch2).publish_state(energy_val);
+                  else if (i == 2) id(nanoview_energy_ch3).publish_state(energy_val);
+                  else if (i == 3) id(nanoview_energy_ch4).publish_state(energy_val);
+                  else if (i == 4) id(nanoview_energy_ch5).publish_state(energy_val);
+                  else if (i == 5) id(nanoview_energy_ch6).publish_state(energy_val);
+                  else if (i == 6) id(nanoview_energy_ch7).publish_state(energy_val);
+                  else if (i == 7) id(nanoview_energy_ch8).publish_state(energy_val);
+                  else if (i == 8) id(nanoview_energy_ch9).publish_state(energy_val);
+                  else if (i == 9) id(nanoview_energy_ch10).publish_state(energy_val);
+                  else if (i == 10) id(nanoview_energy_ch11).publish_state(energy_val);
+                  else if (i == 11) id(nanoview_energy_ch12).publish_state(energy_val);
+                  else if (i == 12) id(nanoview_energy_ch13).publish_state(energy_val);
+                  else if (i == 13) id(nanoview_energy_ch14).publish_state(energy_val);
+                  else if (i == 14) id(nanoview_energy_ch15).publish_state(energy_val);
+                  else if (i == 15) id(nanoview_energy_ch16).publish_state(energy_val);
+                }
+              }
+
+              // (Optional) Check Accumulated Energy Packet Checksum
+              // Data starts at (ENERGY_PACKET_OFFSET + 2) for 64 bytes
+              std::vector<uint8_t> accum_energy_data(bytes.begin() + ENERGY_PACKET_OFFSET + 2, bytes.begin() + ENERGY_PACKET_OFFSET + 2 + ACCUM_ENERGY_DATA_LEN);
+              uint8_t crc1_calc_ap = 0; // Renamed
+              uint8_t crc2_calc_ap = 0; // Renamed
+              for (uint8_t b : accum_energy_data) {
+                crc1_calc_ap = (crc1_calc_ap + b) & 0xFF;
+                crc2_calc_ap = (crc2_calc_ap ^ crc1_calc_ap) & 0xFF;
+              }
+              // Received CRC bytes are at the end of the second packet
+              uint8_t crc1_rx_ap = bytes[TOTAL_CONCATENATED_PACKET_LEN - 2];
+              uint8_t crc2_rx_ap = bytes[TOTAL_CONCATENATED_PACKET_LEN - 1];
+              if (crc1_calc_ap != crc1_rx_ap || crc2_calc_ap != crc2_rx_ap) {
+                ESP_LOGW("uart", "Accumulated Energy Packet Checksum Mismatch! Calculated: %02X %02X, Received: %02X %02X", crc1_calc_ap, crc2_calc_ap, crc1_rx_ap, crc2_rx_ap);
+              }
+            } else {
+              ESP_LOGW("uart", "Unexpected packet format or ID detected at start of buffer (second packet).");
+            }
+          } else {
+            ESP_LOGD("uart", "Not enough bytes for complete concatenated packet. Current size: %u, Expected: %u", bytes.size(), TOTAL_CONCATENATED_PACKET_LEN);
+          }
+sensor:
+  - platform: template
+    name: "${nanoview_voltage_name}"
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    update_interval: 1s
+    lambda: |-
+      return {};
+    id: nanoview_voltage
+  - platform: template
+    name: "Live Power ${nanoview_ch1_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch1_disabled}"
+    id: nanoview_live_power_ch1
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch2_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch2_disabled}"
+    id: nanoview_live_power_ch2
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch3_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch3_disabled}"
+    id: nanoview_live_power_ch3
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch4_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch4_disabled}"
+    id: nanoview_live_power_ch4
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch5_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch5_disabled}"
+    id: nanoview_live_power_ch5
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch6_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch6_disabled}"
+    id: nanoview_live_power_ch6
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch7_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch7_disabled}"
+    id: nanoview_live_power_ch7
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch8_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch8_disabled}"
+    id: nanoview_live_power_ch8
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch9_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch9_disabled}"
+    id: nanoview_live_power_ch9
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch10_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch10_disabled}"
+    id: nanoview_live_power_ch10
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch11_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch11_disabled}"
+    id: nanoview_live_power_ch11
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch12_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch12_disabled}"
+    id: nanoview_live_power_ch12
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch13_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch13_disabled}"
+    id: nanoview_live_power_ch13
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch14_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch14_disabled}"
+    id: nanoview_live_power_ch14
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch15_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch15_disabled}"
+    id: nanoview_live_power_ch15
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Live Power ${nanoview_ch16_name}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 1s
+    internal: "${nanoview_ch16_disabled}"
+    id: nanoview_live_power_ch16
+    lambda: 'return {};'
+
+  - platform: template
+    name: "Energy ${nanoview_ch1_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch1_disabled}"
+    id: nanoview_energy_ch1
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch2_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch2_disabled}"
+    id: nanoview_energy_ch2
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch3_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch3_disabled}"
+    id: nanoview_energy_ch3
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch4_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch4_disabled}"
+    id: nanoview_energy_ch4
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch5_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch5_disabled}"
+    id: nanoview_energy_ch5
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch6_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch6_disabled}"
+    id: nanoview_energy_ch6
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch7_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch7_disabled}"
+    id: nanoview_energy_ch7
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch8_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch8_disabled}"
+    id: nanoview_energy_ch8
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch9_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch9_disabled}"
+    id: nanoview_energy_ch9
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch10_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch10_disabled}"
+    id: nanoview_energy_ch10
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch11_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch11_disabled}"
+    id: nanoview_energy_ch11
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch12_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch12_disabled}"
+    id: nanoview_energy_ch12
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch13_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch13_disabled}"
+    id: nanoview_energy_ch13
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch14_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch14_disabled}"
+    id: nanoview_energy_ch14
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch15_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch15_disabled}"
+    id: nanoview_energy_ch15
+    lambda: 'return {};'
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Energy ${nanoview_ch16_name}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    update_interval: 60s
+    internal: "${nanoview_ch16_disabled}"
+    id: nanoview_energy_ch16
+    lambda: 'return {};'
+    accuracy_decimals: 3
