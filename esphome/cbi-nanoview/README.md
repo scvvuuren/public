@@ -5,11 +5,13 @@ Inspiration Projects : https://github.com/denvera/esp32-nanoview and http://sili
 The objective of this esphome project is to provide a simplified method to make the Nanoview Device Smart.
 The protocol data are read and provided back as multiple sensors to Home Assistant.
 
+
+
+Wiring
+
 ⚠️ WARNING: Electrical Shock Hazard ⚠️
 Working with live power in your DB (Distribution Board) can expose you to severe electrical shock, which may result in serious injury or death.
 Always switch off the mains power to your DB board before attempting any wiring or modifications. If you are unsure or uncomfortable performing this task, please request assistance from a qualified electrician.
-
-Wiring
 
 ````
 NanoHub
