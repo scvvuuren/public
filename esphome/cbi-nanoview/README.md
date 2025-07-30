@@ -6,9 +6,7 @@ Inspiration Projects : https://github.com/denvera/esp32-nanoview and http://sili
 The objective of this esphome project is to provide a simplified method to make the Nanoview Device Smart.
 The protocol data are read and provided back as multiple sensors to Home Assistant.
 
-
-
-Wiring
+## Wiring
 
 ⚠️ WARNING: Electrical Shock Hazard ⚠️
 Working with live power in your DB (Distribution Board) can expose you to severe electrical shock, which may result in serious injury or death.
@@ -35,8 +33,13 @@ NanoHub
     └── To Tablet (No Connection) <-- UNTOUCHED
 ````
 
-Simply copy the yaml configuration to your esphome project configuration file and modify the substitutions to match your requirements.
+## Installation Instructions
+Copy the yaml configuration to your esphome project.
+Modify the substituions section to match your environment.
 
+Validated on: ESPHome 2025.7.x
+
+## Examples
 ESPHome Web Interface
 
 <img width="1829" height="575" alt="image" src="https://github.com/user-attachments/assets/97c55362-c7ed-43c4-a75d-1aa26c92dcc7" />
