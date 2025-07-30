@@ -1,5 +1,6 @@
 # CBI Nanoview Energy Meter
 Protocol Details : https://www.nanoview.co.za/protocol.html
+
 Inspiration Projects : https://github.com/denvera/esp32-nanoview and http://silico.co.za/blog/2019/04/13/hacking-the-nanoview-with-a-rpi-zero-w/
 
 The objective of this esphome project is to provide a simplified method to make the Nanoview Device Smart.
@@ -34,7 +35,7 @@ NanoHub
     └── To Tablet (No Connection) <-- UNTOUCHED
 ````
 
-Simply copy the yaml configuration to and esphome project configuration file and modify the substitutions to match your requirements.
+Simply copy the yaml configuration to your esphome project configuration file and modify the substitutions to match your requirements.
 
 ESPHome Web Interface
 
