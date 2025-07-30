@@ -47,7 +47,7 @@ Home Assistant Integration
 
 Home Assistant Device History
 
-<img width="1609" height="372" alt="image" src="https://github.com/user-attachments/assets/23f0a777-1956-4100-bba0-c1f77126a09c" />
+<img width="1633" height="461" alt="image" src="https://github.com/user-attachments/assets/a1609314-23c5-4a8a-96f6-c4dec0a8dac2" />
 
 Energy Dashboard - Individual Device Energy over 1 Month
 
