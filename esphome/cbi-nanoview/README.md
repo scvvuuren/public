@@ -8,9 +8,14 @@ The protocol data are read and provided back as multiple sensors to Home Assista
 
 ## Wiring
 
-⚠️ WARNING: Electrical Shock Hazard ⚠️
-Working with live power in your DB (Distribution Board) can expose you to severe electrical shock, which may result in serious injury or death.
-Always switch off the mains power to your DB board before attempting any wiring or modifications. If you are unsure or uncomfortable performing this task, please request assistance from a qualified electrician.
+###### ⚠️ WARNING: Electrical Shock Hazard ⚠️
+###### Working with live power in your DB (Distribution Board) can expose you to severe electrical shock, which may result in serious injury or death.
+###### Always switch off the mains power to your DB board before attempting any wiring or modifications. If you are unsure or uncomfortable performing this task, please request assistance from a qualified electrician.
+
+###### ❗NOTE: You cannot disconnect the tablet
+
+You need to tap into the Black (GND) wire as well as the White (Signal) wire.
+I found that the most reliable method is simply to cut the wires and use a 3 connector.
 
 ````
 NanoHub
@@ -40,19 +45,19 @@ Modify the substituions section to match your environment.
 Validated on: ESPHome 2025.7.x
 
 ## Examples
-ESPHome Web Interface
+### ESPHome Web Interface
 
 <img width="1829" height="575" alt="image" src="https://github.com/user-attachments/assets/97c55362-c7ed-43c4-a75d-1aa26c92dcc7" />
 
-Home Assistant Integration
+### Home Assistant Integration
 
 <img width="297" height="853" alt="image" src="https://github.com/user-attachments/assets/42d90140-9c0e-4993-9858-f6c2d8ca4b84" />
 
-Home Assistant Device History
+### Home Assistant Device History
 
 <img width="1633" height="461" alt="image" src="https://github.com/user-attachments/assets/a1609314-23c5-4a8a-96f6-c4dec0a8dac2" />
 
-Energy Dashboard - Individual Device Energy over 1 Month
+### Energy Dashboard - Individual Device Energy over 1 Month
 
 <img width="1373" height="418" alt="image" src="https://github.com/user-attachments/assets/64b151dc-5d74-4bec-9e8d-5f9b9796f11c" />
 
