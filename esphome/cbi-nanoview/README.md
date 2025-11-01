@@ -42,7 +42,7 @@ NanoHub
 Copy the yaml configuration to your esphome project.
 Modify the substituions section to match your environment.
 
-Validated on: ESPHome 2025.7.x
+Validated on: ESPHome 2025.7.x, 2025.10.x
 
 ## Examples
 ### ESPHome Web Interface
